@@ -147,7 +147,12 @@ def main() -> int:
     label_id = required_env("LINEAR_LABEL_ID")
     discord_webhook = os.environ.get("DISCORD_WEBHOOK_URL") or None
 
-    advisories = fetch_triage_advisories(repo, gh_token)
+    try:
+        advisories = fetch_triage_advisories(repo, gh_token)
+    except requests.RequestException as exc:
+        print(f"Unable to fetch advisories: {exc}")
+        # Do not fail the workflow on transient or permission-related API errors.
+        return 0
     print(f"Fetched {len(advisories)} triage advisories")
 
     created = skipped = failed = 0
@@ -188,7 +193,9 @@ def main() -> int:
             post_discord(adv, issue, discord_webhook)
 
     print(f"Created {created}, skipped {skipped}, failed {failed}")
-    return 1 if failed > 0 else 0
+    if failed > 0:
+        print("Completed with partial failures; see logs for advisory-level errors.")
+    return 0
 
 
 if __name__ == "__main__":

@@ -16,9 +16,36 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Validate required secrets
+        id: preflight
+        shell: bash
+        run: |
+          missing=0
+          for key in GHSA_READ_TOKEN LINEAR_API_KEY LINEAR_TEAM_ID LINEAR_PROJECT_ID LINEAR_LABEL_ID; do
+            if [ -z "${!key}" ]; then
+              echo "::warning::Missing required secret: ${key}"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GHSA_READ_TOKEN: ${{ secrets.GHSA_READ_TOKEN }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+          LINEAR_PROJECT_ID: ${{ secrets.LINEAR_PROJECT_ID }}
+          LINEAR_LABEL_ID: ${{ secrets.LINEAR_LABEL_ID }}
       - name: Install dependencies
+        if: steps.preflight.outputs.ready == 'true'
         run: pip install requests==2.32.3
+      - name: Skip sync when secrets are missing
+        if: steps.preflight.outputs.ready != 'true'
+        run: echo "Skipping GHSA->Linear sync due to missing required secrets."
       - name: Sync advisories
+        if: steps.preflight.outputs.ready == 'true'
         env:
           GHSA_READ_TOKEN: ${{ secrets.GHSA_READ_TOKEN }}
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
