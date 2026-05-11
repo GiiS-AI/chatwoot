@@ -25,9 +25,11 @@ class InstallationConfig < ApplicationRecord
   validates :name, presence: true
   validate :saml_sso_users_check, if: -> { name == 'ENABLE_SAML_SSO_LOGIN' }
 
-  # TODO: Get rid of default scope
+  # FIX: Removed problematic default_scope to prevent eager loading errors in production
+  # TODO: Get rid of default scope entirely
   # https://stackoverflow.com/a/1834250/939299
-  default_scope { order(created_at: :desc) }
+  # Use #sorted_by_created_at method or explicit .order(:created_at => :desc) instead
+  scope :sorted, -> { order(created_at: :desc) }
   scope :editable, -> { where(locked: false) }
 
   after_commit :clear_cache
